@@ -1,0 +1,1 @@
+ansible-playbook -i requests/124gFD32s/124gFD32s_inv.yml access_interface_gathering.yml --extra-vars request_key=124gFD32s -vvvv

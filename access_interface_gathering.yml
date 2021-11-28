@@ -1,0 +1,76 @@
+---
+- name: Gather IOS L2 interfaces in access mode and configure for 802.1x
+  hosts: ios
+  vars:
+    request_key: "{{ lookup('file', '/home/ansible/stage_control_node/requests/{{request_key}}/{{request_key}}') }}"
+  gather_facts: no
+
+  ##############################################################
+  # TASKS REQUIRED TO CONFIGURE SWITCHPORTS FOR RADIUS IBNS 1.0 #
+  ##############################################################
+  tasks:
+
+  # Gather Layer 2 interface facts. This will only gather information for access and trunk interfaces.
+  # Includes information such as switchport mode, if access the VLAN, if trunk the VLANs on the trunk, interface name, etc.
+  - name: gather IOS facts for layer 2 interfaces
+    ios_facts:
+      gather_network_resources: l2_interfaces
+
+  ########
+  # THIS SECTION WILL REMOVE PRE-EXISTING FILES THAT WE WILL CREATE LATER
+  ########
+
+  #We will save the interface facts into a JSON later, so we will delete the JSON file if it already exists
+  - name: Delete {{inventory_hostname}}_facts.JSON file if it exists
+    file:
+      path: /home/ansible/stage_control_node/requests/{{request_key}}/{{inventory_hostname}}_facts.json
+      state: absent
+  
+  #We will filter out only access swithports later and save it to a file, so we will delete that file if it already exists
+  - name: Delete {{inventory_hostname}}_access_switchport.txt file if it exists
+    file:
+      path: /home/ansible/stage_control_node/requests/{{request_key}}/{{inventory_hostname}}_facts.json
+      state: absent
+
+  # THIS SECTION PERFORMS THE ACTUAL TASK OF GATHERING INTERFACE INFO, PARSING ACCESS PORTS, AND CONFIGURING FOR RADIUS
+  ########
+
+  # Create a pretty-formatted JSON file that will save the l2_interfaces obj. This file is saved to disk. 
+  - name: Create formatted JSON file that contains ALL layer 2 interfaces.
+    copy:
+      content: |
+        {{ ansible_network_resources['l2_interfaces'] | to_nice_json }}
+      dest: /home/ansible/stage_control_node/requests/{{request_key}}/{{inventory_hostname}}_facts.json
+
+  # In the next task we will be filtering layer 2 interfaces and saving them to a file. Here we create that file
+  - name: Create a new file
+    file:
+      path: /home/ansible/stage_control_node/requests/{{request_key}}/{{inventory_hostname}}_access_switchport.txt
+      state: touch
+
+  # In this tasks we put lines into a text file for each interface in access mode. 
+  # lineinfile module lets us put a line in a file
+  # line parameter is the text to place in file
+  # insertafter parameter is crucially important as it tells ansible to append the line
+  # dest is self-explainitory, its the destination file
+  # We delegate this task to localhost
+  # and MOST IMPORTANTLY we reference the items in l2_interfaces structure
+  # only WHEN the item.mode (interfaces mode) is defined, and is set to access
+  # I found that some interfaces will appear as l2 but not have mode key defined, leading to errors. 
+  # This is why we make sure it exists first.
+  - name: List interfaces that are access mode
+    lineinfile:
+      line: "Interface: {{item.name}} is set to {{ item.mode }} on VLAN:{{item.access.vlan}}"
+      insertafter: EOF  
+      dest: /home/ansible/stage_control_node/requests/{{request_key}}/{{inventory_hostname}}_access_switchport.txt
+    delegate_to: 127.0.0.1
+    with_items: "{{ ansible_network_resources['l2_interfaces'] }}"
+    when: item.mode is defined and item.mode == "access"
+  
+  # We want to backup the running configuration on the switch before configuring RADIUS 
+  - name: Backup IOS config
+    ios_config:
+      backup: yes
+      backup_options:
+        filename: "{{inventory_hostname}}_pre_radius_backup.cfg"
+        dir_path: /home/ansible/stage_control_node/requests/{{request_key}}/

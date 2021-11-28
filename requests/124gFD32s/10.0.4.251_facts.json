@@ -1,0 +1,33 @@
+[
+    {
+        "mode": "trunk",
+        "name": "GigabitEthernet0/0",
+        "trunk": {
+            "allowed_vlans": [
+                "4"
+            ],
+            "encapsulation": "dot1q"
+        }
+    },
+    {
+        "access": {
+            "vlan": 2
+        },
+        "mode": "access",
+        "name": "GigabitEthernet0/1"
+    },
+    {
+        "access": {
+            "vlan": 2
+        },
+        "mode": "access",
+        "name": "GigabitEthernet0/2"
+    },
+    {
+        "access": {
+            "vlan": 2
+        },
+        "mode": "access",
+        "name": "GigabitEthernet0/3"
+    }
+]

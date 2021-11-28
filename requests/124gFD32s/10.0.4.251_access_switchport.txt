@@ -1,0 +1,3 @@
+Interface: GigabitEthernet0/1 is set to access on VLAN:2
+Interface: GigabitEthernet0/2 is set to access on VLAN:2
+Interface: GigabitEthernet0/3 is set to access on VLAN:2
